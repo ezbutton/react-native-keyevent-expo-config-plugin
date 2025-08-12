@@ -38,7 +38,7 @@
     },
     {
       "name": "Donny Cannoy"
-    },
+    }
   ],
   "devDependencies": {
     "expo-module-scripts": "^3.5.2"
