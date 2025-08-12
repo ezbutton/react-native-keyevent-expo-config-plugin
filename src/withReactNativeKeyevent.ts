@@ -4,7 +4,7 @@ const config_plugins_1 = require("@expo/config-plugins");
 const generateCode_1 = require("@expo/config-plugins/build/utils/generateCode");
 const withIosAppDelegateImport = (config: any) => {
     // @ts-ignore
-    const newConfig = (0, config_plugins_1.withAppDelegate)(config: any, (config: any) => {
+    const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const newSrc = ['#import <RNKeyEvent.h>'];
         const newConfig = (0, generateCode_1.mergeContents)({
             tag: 'react-native-keyevent-import',
@@ -23,7 +23,7 @@ const withIosAppDelegateImport = (config: any) => {
 };
 const withIosAppDelegateBody = (config: any) => {
     // @ts-ignore
-    const newConfig = (0, config_plugins_1.withAppDelegate)(config: any, (config: any) => {
+    const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const newSrc = [
             'RNKeyEvent *keyEvent = nil;',
             ' ',
@@ -83,7 +83,7 @@ const withIosAppDelegateBody = (config: any) => {
 };
 const withAndroidMainActivityImport = (config: any) => {
     // @ts-ignore
-    const newConfig = (0, config_plugins_1.withMainActivity)(config: any, (config: any) => {
+    const newConfig = (0, config_plugins_1.withMainActivity)(config, (config) => {
         const newSrc = [
             'import android.view.KeyEvent',
             'import com.github.kevinejohn.keyevent.KeyEventModule',
@@ -105,7 +105,7 @@ const withAndroidMainActivityImport = (config: any) => {
 };
 const withAndroidMainActivityBody = (config: any) => {
     // @ts-ignore
-    const newConfig = (0, config_plugins_1.withMainActivity)(config: any, (config: any) => {
+    const newConfig = (0, config_plugins_1.withMainActivity)(config, (config) => {
         const newSrc = [
             'override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {',
             '   // // Uncomment this if key events should only trigger once when key is held down',
