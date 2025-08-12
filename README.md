@@ -1,4 +1,4 @@
-# @bam.tech/react-native-keyevent-expo-config-plugin
+# ezbutton/react-native-keyevent-expo-config-plugin
 
 Config plugin to auto configure react-native-keyevent on prebuild
 
@@ -6,7 +6,7 @@ Config plugin to auto configure react-native-keyevent on prebuild
 
 ```
 yarn add react-native-keyevent
-yarn add --dev @bam.tech/react-native-keyevent-expo-config-plugin
+yarn add --dev ezbutton/react-native-keyevent-expo-config-plugin
 ```
 
 In your `app.json` or equivalent, add the following;
@@ -15,7 +15,7 @@ In your `app.json` or equivalent, add the following;
 {
     expo: {
       /* ... */
-      plugins: ['@bam.tech/react-native-keyevent-expo-config-plugin'],
+      plugins: ['ezbutton/react-native-keyevent-expo-config-plugin'],
     },
   }
 ```
