@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_plugins_1 = require("@expo/config-plugins");
 const generateCode_1 = require("@expo/config-plugins/build/utils/generateCode");
-const withIosAppDelegateImport = (config: any) => {
+const withIosAppDelegateImport = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const newSrc = ['#import <RNKeyEvent.h>'];
@@ -21,7 +21,7 @@ const withIosAppDelegateImport = (config: any) => {
     });
     return newConfig;
 };
-const withIosAppDelegateBody = (config: any) => {
+const withIosAppDelegateBody = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const newSrc = [
@@ -81,7 +81,7 @@ const withIosAppDelegateBody = (config: any) => {
     });
     return newConfig;
 };
-const withAndroidMainActivityImport = (config: any) => {
+const withAndroidMainActivityImport = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withMainActivity)(config, (config) => {
         const newSrc = [
@@ -103,7 +103,7 @@ const withAndroidMainActivityImport = (config: any) => {
     });
     return newConfig;
 };
-const withAndroidMainActivityBody = (config: any) => {
+const withAndroidMainActivityBody = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withMainActivity)(config, (config) => {
         const newSrc = [
@@ -166,7 +166,7 @@ const withAndroidMainActivityBody = (config: any) => {
     });
     return newConfig;
 };
-const initPlugin = (config: any) => {
+const initPlugin = (config) => {
     config = withIosAppDelegateImport(config);
     config = withIosAppDelegateBody(config);
     config = withAndroidMainActivityImport(config);
