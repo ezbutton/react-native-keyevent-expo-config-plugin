@@ -5,6 +5,12 @@ const generateCode_1 = require("@expo/config-plugins/build/utils/generateCode");
 const withIosAppDelegateImport = (config: any) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
+        const isSwift = config.modResults.contents.includes('import Expo');
+        if (isSwift) {
+            // Swift AppDelegate (SDK 53+) — no import needed, uses dynamic class loading
+            return config;
+        }
+        // ObjC AppDelegate (SDK 52 and earlier)
         const newSrc = ['#import <RNKeyEvent.h>'];
         const newConfig = (0, generateCode_1.mergeContents)({
             tag: 'react-native-keyevent-import',
@@ -14,16 +20,77 @@ const withIosAppDelegateImport = (config: any) => {
             offset: 1,
             comment: '//',
         });
-        return {
-            ...config,
-            modResults: newConfig,
-        };
+        return { ...config, modResults: newConfig };
     });
     return newConfig;
 };
 const withIosAppDelegateBody = (config: any) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
+        const isSwift = config.modResults.contents.includes('import Expo');
+        if (isSwift) {
+            // Swift AppDelegate (SDK 53+)
+            // ExpoAppDelegate inherits from NSObject (not UIResponder), so we cannot
+            // override keyCommands on AppDelegate. Instead, we create a UIWindow subclass
+            // that handles key commands (UIWindow IS a UIResponder) and replace the
+            // window creation in AppDelegate.
+            const anchor = config.modResults.contents.includes('@UIApplicationMain')
+                ? '@UIApplicationMain'
+                : '@main';
+            const windowClassSrc = [
+                'private var keyEventInstance: NSObject?',
+                '',
+                'class KeyEventWindow: UIWindow {',
+                '  override var keyCommands: [UIKeyCommand]? {',
+                '    var keys = [UIKeyCommand]()',
+                '    if keyEventInstance == nil {',
+                '      if let cls = NSClassFromString("RNKeyEvent") as? NSObject.Type {',
+                '        keyEventInstance = cls.init()',
+                '      }',
+                '    }',
+                '    guard let keyEvent = keyEventInstance,',
+                '          (keyEvent.value(forKey: "listening") as? Bool) == true else {',
+                '      return keys',
+                '    }',
+                '    let keysString = keyEvent.value(forKey: "keys") as? String ?? ""',
+                '    let defaultNames = keysString.components(separatedBy: ",")',
+                '    let customNames = [UIKeyCommand.inputUpArrow, UIKeyCommand.inputRightArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputLeftArrow, UIKeyCommand.inputPageUp, UIKeyCommand.inputPageDown]',
+                '    let allNames = defaultNames + customNames',
+                '    for name in allNames {',
+                '      let newKey = UIKeyCommand(input: name, modifierFlags: [], action: #selector(keyInput(_:)))',
+                '      if #available(iOS 15.0, *) {',
+                '        newKey.wantsPriorityOverSystemBehavior = true',
+                '      }',
+                '      keys.append(newKey)',
+                '    }',
+                '    return keys',
+                '  }',
+                '',
+                '  @objc func keyInput(_ sender: UIKeyCommand) {',
+                '    guard let selected = sender.input else { return }',
+                '    keyEventInstance?.perform(NSSelectorFromString("sendKeyEvent:"), with: selected)',
+                '  }',
+                '}',
+            ];
+            const result = (0, generateCode_1.mergeContents)({
+                tag: 'react-native-keyevent-body',
+                src: config.modResults.contents,
+                newSrc: windowClassSrc.join('\n'),
+                anchor: anchor,
+                offset: 0,
+                comment: '//',
+            });
+            // Replace UIWindow with KeyEventWindow for window creation
+            result.contents = result.contents.replace(
+                'UIWindow(frame: UIScreen.main.bounds)',
+                'KeyEventWindow(frame: UIScreen.main.bounds)'
+            );
+            return {
+                ...config,
+                modResults: result,
+            };
+        }
+        // ObjC AppDelegate (SDK 52 and earlier)
         const newSrc = [
             'RNKeyEvent *keyEvent = nil;',
             ' ',
@@ -40,17 +107,9 @@ const withIosAppDelegateBody = (config: any) => {
             '    NSMutableArray *namesArray = [NSMutableArray arrayWithArray:defaultNamesArray];',
             '    [namesArray addObjectsFromArray:customNamesArray];',
             '     ',
-            '    //NSCharacterSet *validChars = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZ"];',
-            '     ',
             '    for (NSString* names in namesArray) {',
-            '      //NSRange  range = [names rangeOfCharacterFromSet:validChars];',
-            '       ',
             '      UIKeyCommand *newKey;',
-            '      //if (NSNotFound != range.location) {',
-            '      //  [keys addObject: [UIKeyCommand keyCommandWithInput:names modifierFlags:UIKeyModifierShift action:@selector(keyInput:)]];',
-            '      //} else {',
             '        newKey = [UIKeyCommand keyCommandWithInput:names modifierFlags:0 action:@selector(keyInput:)];',
-            '      //}',
             '      if (@available(iOS 15.0, *)) {',
             '          newKey.wantsPriorityOverSystemBehavior = true;',
             '      }',
@@ -70,7 +129,7 @@ const withIosAppDelegateBody = (config: any) => {
             tag: 'react-native-keyevent-body',
             src: config.modResults.contents,
             newSrc: newSrc.join('\n'),
-            anchor: `@implementation AppDelegate`, // /#import "AppDelegate\.h"/g,
+            anchor: `@implementation AppDelegate`,
             offset: 1,
             comment: '//',
         });
