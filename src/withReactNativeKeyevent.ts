@@ -29,29 +29,33 @@ const withIosAppDelegateBody = (config: any) => {
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const isSwift = config.modResults.contents.includes('import Expo');
         if (isSwift) {
-            // Swift AppDelegate (SDK 53+) — uses dynamic ObjC runtime to avoid module import issues
-            const newSrc = [
-                '  private var _keyEvent: NSObject?',
+            // Swift AppDelegate (SDK 53+)
+            // ExpoAppDelegate inherits from NSObject (not UIResponder), so we cannot
+            // override keyCommands on AppDelegate. Instead, we create a UIWindow subclass
+            // that handles key commands (UIWindow IS a UIResponder) and replace the
+            // window creation in AppDelegate.
+            const anchor = config.modResults.contents.includes('@UIApplicationMain')
+                ? '@UIApplicationMain'
+                : '@main';
+            const windowClassSrc = [
+                'private var keyEventInstance: NSObject?',
                 '',
+                'class KeyEventWindow: UIWindow {',
                 '  override var keyCommands: [UIKeyCommand]? {',
                 '    var keys = [UIKeyCommand]()',
-                '',
-                '    if _keyEvent == nil {',
+                '    if keyEventInstance == nil {',
                 '      if let cls = NSClassFromString("RNKeyEvent") as? NSObject.Type {',
-                '        _keyEvent = cls.init()',
+                '        keyEventInstance = cls.init()',
                 '      }',
                 '    }',
-                '',
-                '    guard let keyEvent = _keyEvent,',
+                '    guard let keyEvent = keyEventInstance,',
                 '          (keyEvent.value(forKey: "listening") as? Bool) == true else {',
                 '      return keys',
                 '    }',
-                '',
                 '    let keysString = keyEvent.value(forKey: "keys") as? String ?? ""',
                 '    let defaultNames = keysString.components(separatedBy: ",")',
                 '    let customNames = [UIKeyCommand.inputUpArrow, UIKeyCommand.inputRightArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputLeftArrow, UIKeyCommand.inputPageUp, UIKeyCommand.inputPageDown]',
                 '    let allNames = defaultNames + customNames',
-                '',
                 '    for name in allNames {',
                 '      let newKey = UIKeyCommand(input: name, modifierFlags: [], action: #selector(keyInput(_:)))',
                 '      if #available(iOS 15.0, *) {',
@@ -59,26 +63,31 @@ const withIosAppDelegateBody = (config: any) => {
                 '      }',
                 '      keys.append(newKey)',
                 '    }',
-                '',
                 '    return keys',
                 '  }',
                 '',
                 '  @objc func keyInput(_ sender: UIKeyCommand) {',
                 '    guard let selected = sender.input else { return }',
-                '    _keyEvent?.perform(NSSelectorFromString("sendKeyEvent:"), with: selected)',
+                '    keyEventInstance?.perform(NSSelectorFromString("sendKeyEvent:"), with: selected)',
                 '  }',
+                '}',
             ];
-            const newConfig = (0, generateCode_1.mergeContents)({
+            const result = (0, generateCode_1.mergeContents)({
                 tag: 'react-native-keyevent-body',
                 src: config.modResults.contents,
-                newSrc: newSrc.join('\n'),
-                anchor: `class AppDelegate`,
-                offset: 1,
+                newSrc: windowClassSrc.join('\n'),
+                anchor: anchor,
+                offset: 0,
                 comment: '//',
             });
+            // Replace UIWindow with KeyEventWindow for window creation
+            result.contents = result.contents.replace(
+                'UIWindow(frame: UIScreen.main.bounds)',
+                'KeyEventWindow(frame: UIScreen.main.bounds)'
+            );
             return {
                 ...config,
-                modResults: newConfig,
+                modResults: result,
             };
         }
         // ObjC AppDelegate (SDK 52 and earlier)
