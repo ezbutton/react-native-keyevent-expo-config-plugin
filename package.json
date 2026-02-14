@@ -1,5 +1,5 @@
 {
-  "name": "@ezbutton/react-native-keyevent-expo-config-plugin",
+  "name": "@kgentes/react-native-keyevent-expo-config-plugin",
   "version": "1.0.53",
   "description": "Config plugin to auto configure react-native-keyevent on prebuild",
   "main": "build/withReactNativeKeyevent.js",
@@ -7,7 +7,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/ezbutton/react-native-keyevent-expo-config-plugin.git"
+    "url": "https://github.com/corvinrok/react-native-keyevent-expo-config-plugin.git"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
@@ -18,8 +18,8 @@
     "lint": "expo-module lint",
     "test": "expo-module test",
     "package:publish": "npm publish --access public",
-    "prepare": "expo-module prepare",
-    "prepublishOnly": "expo-module prepublishOnly",
+    "prepare": "",
+    "prepublishOnly": "",
     "expo-module": "expo-module"
   },
   "files": [
