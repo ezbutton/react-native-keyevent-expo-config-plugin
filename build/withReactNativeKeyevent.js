@@ -2,22 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_plugins_1 = require("@expo/config-plugins");
 const generateCode_1 = require("@expo/config-plugins/build/utils/generateCode");
+const fs = require("fs");
+const path = require("path");
 const withIosAppDelegateImport = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const isSwift = config.modResults.contents.includes('import Expo');
         if (isSwift) {
-            // Swift AppDelegate (SDK 53+) — RNKeyEvent available via CocoaPods module
-            const newSrc = ['import RNKeyEvent'];
-            const newConfig = (0, generateCode_1.mergeContents)({
-                tag: 'react-native-keyevent-import',
-                src: config.modResults.contents,
-                newSrc: newSrc.join('\n'),
-                anchor: `import Expo`,
-                offset: 1,
-                comment: '//',
-            });
-            return { ...config, modResults: newConfig };
+            // Swift AppDelegate (SDK 53+) — import handled via bridging header
+            return config;
         }
         // ObjC AppDelegate (SDK 52 and earlier)
         const newSrc = ['#import <RNKeyEvent.h>'];
@@ -32,6 +25,29 @@ const withIosAppDelegateImport = (config) => {
         return { ...config, modResults: newConfig };
     });
     return newConfig;
+};
+const withIosBridgingHeader = (config) => {
+    return (0, config_plugins_1.withDangerousMod)(config, [
+        'ios',
+        async (config) => {
+            const iosDir = path.join(config.modRequest.projectRoot, 'ios');
+            const entries = fs.readdirSync(iosDir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'Pods' && entry.name !== 'build') {
+                    const headerPath = path.join(iosDir, entry.name, `${entry.name}-Bridging-Header.h`);
+                    if (fs.existsSync(headerPath)) {
+                        let contents = fs.readFileSync(headerPath, 'utf-8');
+                        if (!contents.includes('RNKeyEvent.h')) {
+                            contents = contents.trimEnd() + '\n#import <RNKeyEvent.h>\n';
+                            fs.writeFileSync(headerPath, contents, 'utf-8');
+                        }
+                        break;
+                    }
+                }
+            }
+            return config;
+        },
+    ]);
 };
 const withIosAppDelegateBody = (config) => {
     // @ts-ignore
@@ -223,6 +239,7 @@ const withAndroidMainActivityBody = (config) => {
 };
 const initPlugin = (config) => {
     config = withIosAppDelegateImport(config);
+    config = withIosBridgingHeader(config);
     config = withIosAppDelegateBody(config);
     config = withAndroidMainActivityImport(config);
     config = withAndroidMainActivityBody(config);
