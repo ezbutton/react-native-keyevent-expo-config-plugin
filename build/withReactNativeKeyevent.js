@@ -2,14 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const config_plugins_1 = require("@expo/config-plugins");
 const generateCode_1 = require("@expo/config-plugins/build/utils/generateCode");
-const fs = require("fs");
-const path = require("path");
 const withIosAppDelegateImport = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const isSwift = config.modResults.contents.includes('import Expo');
         if (isSwift) {
-            // Swift AppDelegate (SDK 53+) — import handled via bridging header
+            // Swift AppDelegate (SDK 53+) — no import needed, uses dynamic class loading
             return config;
         }
         // ObjC AppDelegate (SDK 52 and earlier)
@@ -26,50 +24,31 @@ const withIosAppDelegateImport = (config) => {
     });
     return newConfig;
 };
-const withIosBridgingHeader = (config) => {
-    return (0, config_plugins_1.withDangerousMod)(config, [
-        'ios',
-        async (config) => {
-            const iosDir = path.join(config.modRequest.projectRoot, 'ios');
-            const entries = fs.readdirSync(iosDir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'Pods' && entry.name !== 'build') {
-                    const headerPath = path.join(iosDir, entry.name, `${entry.name}-Bridging-Header.h`);
-                    if (fs.existsSync(headerPath)) {
-                        let contents = fs.readFileSync(headerPath, 'utf-8');
-                        if (!contents.includes('RNKeyEvent.h')) {
-                            contents = contents.trimEnd() + '\n#import <RNKeyEvent.h>\n';
-                            fs.writeFileSync(headerPath, contents, 'utf-8');
-                        }
-                        break;
-                    }
-                }
-            }
-            return config;
-        },
-    ]);
-};
 const withIosAppDelegateBody = (config) => {
     // @ts-ignore
     const newConfig = (0, config_plugins_1.withAppDelegate)(config, (config) => {
         const isSwift = config.modResults.contents.includes('import Expo');
         if (isSwift) {
-            // Swift AppDelegate (SDK 53+)
+            // Swift AppDelegate (SDK 53+) — uses dynamic ObjC runtime to avoid module import issues
             const newSrc = [
-                '  var keyEvent: RNKeyEvent?',
+                '  private var _keyEvent: NSObject?',
                 '',
                 '  override var keyCommands: [UIKeyCommand]? {',
                 '    var keys = [UIKeyCommand]()',
                 '',
-                '    if keyEvent == nil {',
-                '      keyEvent = RNKeyEvent()',
+                '    if _keyEvent == nil {',
+                '      if let cls = NSClassFromString("RNKeyEvent") as? NSObject.Type {',
+                '        _keyEvent = cls.init()',
+                '      }',
                 '    }',
                 '',
-                '    guard let keyEvent = keyEvent, keyEvent.isListening() else {',
+                '    guard let keyEvent = _keyEvent,',
+                '          (keyEvent.value(forKey: "listening") as? Bool) == true else {',
                 '      return keys',
                 '    }',
                 '',
-                '    let defaultNames = (keyEvent.getKeys() ?? "").components(separatedBy: ",")',
+                '    let keysString = keyEvent.value(forKey: "keys") as? String ?? ""',
+                '    let defaultNames = keysString.components(separatedBy: ",")',
                 '    let customNames = [UIKeyCommand.inputUpArrow, UIKeyCommand.inputRightArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputLeftArrow, UIKeyCommand.inputPageUp, UIKeyCommand.inputPageDown]',
                 '    let allNames = defaultNames + customNames',
                 '',
@@ -86,7 +65,7 @@ const withIosAppDelegateBody = (config) => {
                 '',
                 '  @objc func keyInput(_ sender: UIKeyCommand) {',
                 '    guard let selected = sender.input else { return }',
-                '    keyEvent?.sendKeyEvent(selected)',
+                '    _keyEvent?.perform(NSSelectorFromString("sendKeyEvent:"), with: selected)',
                 '  }',
             ];
             const newConfig = (0, generateCode_1.mergeContents)({
@@ -239,7 +218,6 @@ const withAndroidMainActivityBody = (config) => {
 };
 const initPlugin = (config) => {
     config = withIosAppDelegateImport(config);
-    config = withIosBridgingHeader(config);
     config = withIosAppDelegateBody(config);
     config = withAndroidMainActivityImport(config);
     config = withAndroidMainActivityBody(config);
